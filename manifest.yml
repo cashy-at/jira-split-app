@@ -1,0 +1,28 @@
+modules:
+  jira:projectPage:
+    - key: jira-split-tasks
+      function: main
+      title: Jira Split Tasks App
+  function:
+    - key: main
+      handler: index.run
+    - key: consumer-function
+      handler: consumer.handler
+  consumer:
+    - key: queue-consumer
+      queue: split-tasks-queue
+      resolver:
+        function: consumer-function
+        method: event-listener
+app:
+  id: ari:cloud:ecosystem::app/b08fcb59-0226-4f7b-bf51-beecf6df681c
+permissions:
+  scopes:
+    - write:jira-work
+    - read:jira-work
+    - read:issue-details:jira
+    - read:board-scope:jira-software
+    - read:sprint:jira-software
+  external:
+    images:
+      - https://api.atlassian.com
