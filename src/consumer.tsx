@@ -35,6 +35,14 @@ const updateIssue = async (issueId, fields) => {
   if (response.status !== 204) throw new Error(await response.text());
 };
 
+const createDescription = (description) => ({
+  ...description,
+  type: "doc",
+  content: description.content.filter(
+    (content) => content.type !== "mediaSingle"
+  ),
+});
+
 const cloneIssue = async (issue, fields) => {
   const bodyData = {
     fields: {
@@ -48,6 +56,9 @@ const cloneIssue = async (issue, fields) => {
         "labels",
       ]),
       ...fields,
+      description: issue.fields.description
+        ? createDescription(issue.fields.description)
+        : null,
     },
     update: {},
   };
@@ -96,6 +107,29 @@ const changeStatusDoneIssue = async (issueIdOrKey) => {
   if (response.status !== 204) throw new Error(await response.text());
 };
 
+const linkCloneIssueToParent = async (issueKey, parentKey) => {
+  const bodyData = {
+    type: { id: "10006" }, // This is id for split from
+    inwardIssue: { key: parentKey },
+    outwardIssue: { key: issueKey },
+  };
+
+  const response = await api.asApp().requestJira(route`/rest/api/3/issueLink`, {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(bodyData),
+  });
+
+  console.log(
+    `linkCloneIssueToParent Response: ${response.status} ${response.statusText}`
+  );
+
+  if (response.status !== 201) throw new Error(await response.text());
+};
+
 const handleSplit = async (issueIdOrKey: string) => {
   const issue = await getIssue(issueIdOrKey);
 
@@ -108,16 +142,22 @@ const handleSplit = async (issueIdOrKey: string) => {
     Number(issue.fields[CONFIGS.STORY_POINT_FIELD_NAME] ?? 0) - nextStoryPoint;
 
   if (newStoryPoint > 0) {
+    const sprints = issue.fields[CONFIGS.SPRINT_FIELD_NAME];
+    const activeSprint = sprints?.find(
+      (sprint) => sprint.state === "active"
+    )?.id;
+
     const cloned = await cloneIssue(issue, {
       ...(!issue.fields.issuetype.subtask && {
-        [CONFIGS.SPRINT_FIELD_NAME]:
-          issue.fields[CONFIGS.SPRINT_FIELD_NAME]?.[0]?.id,
+        // Note this is a subtask and subtasks cannot be associated to a sprint. It's associated to the same sprint as its parent.
+        [CONFIGS.SPRINT_FIELD_NAME]: activeSprint,
       }),
       [CONFIGS.STORY_POINT_FIELD_NAME]: newStoryPoint,
       summary: `${issue.fields.summary} - SPLIT`,
     });
 
     await changeStatusDoneIssue(cloned.id);
+    await linkCloneIssueToParent(cloned.key, issueIdOrKey);
   }
 
   await updateIssue(issue.id, {
