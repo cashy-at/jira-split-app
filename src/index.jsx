@@ -39,17 +39,11 @@ const getBoardSprints = async (boardId) => {
 
 const App = () => {
   const [issues, setIssues] = useState();
-  const [nextSprintId, setNextSprintId] = useState();;
   const [isConfirm, setConfirm] = useState(false);
   const [isCompleted, setCompleted] = useState(false);
   const [sprints] = useState(async () => await getBoardSprints(CONFIGS.CASHY_BOARD_ID));
 
-  const activeSprint = sprints?.find(sprint => sprint.state === 'active')
-  const activeSprintNumber = Number(activeSprint?.name?.match(/\d+/)?.[0])
-  const suggestNextSprintId = activeSprintNumber && sprints?.find(sprint => sprint.state === 'future' && Number(sprint.name?.match(/\d+/)?.[0]) === activeSprintNumber + 1)?.id
-
   const handleSubmit = async (v) => {
-    setNextSprintId(v.nextSprint)
     const data = await searchIssues(v.targetSprint)
     setIssues(data
       .filter(issue =>
@@ -81,7 +75,7 @@ const App = () => {
   }
 
   const actionsButtons = [
-    <Button text="Split tasks" onClick={handleConfirmSplit} disabled={!nextSprintId} />
+    <Button text="Split tasks" onClick={handleConfirmSplit} />
   ]
 
   return (
@@ -94,15 +88,6 @@ const App = () => {
               <Option defaultSelected={sprint.state === 'active'} label={sprint.name} value={sprint.id} key={sprint.id} />
             ))}
         </Select>
-
-        <Select label="Next sprint" name="nextSprint" isRequired>
-          {sprints
-            ?.filter(sprint => sprint.state !== 'active')
-            ?.map(sprint => (
-              <Option defaultSelected={sprint.id === suggestNextSprintId} label={sprint.name} value={sprint.id} key={sprint.id} />
-            ))}
-        </Select>
-
       </Form>
 
 
